@@ -30,7 +30,11 @@ yarn read # The way to read the smart contract data after your deployed the code
 > [!WARNING]
 > Remember to change the parameter in `contract.deploy.ts` file before you run `yarn deploy`
 
-![Alt text](image.png)
+![Alt text](./images/image.png)
+
+---
+
+![alt text](./images/image-1.png) - once you run `yarn deploy` you will get the address of the deployed contract. You can use this address to interact with the contract.
 
 ## More
 

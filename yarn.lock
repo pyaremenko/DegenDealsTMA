@@ -2936,22 +2936,6 @@ to-regex-range@^5.0.1:
   dependencies:
     is-number "^7.0.0"
 
-ton-crypto-primitives@2.0.0:
-  version "2.0.0"
-  resolved "https://registry.npmjs.org/ton-crypto-primitives/-/ton-crypto-primitives-2.0.0.tgz"
-  integrity sha512-K+qKjpS0h9sPW6oExcpxnzuQ7nEgHEiDKwIqE/jWD25o8iFGe3FWj1gKxFNbKE9wwYKc5IV8FwrU+raF0KO5nQ==
-  dependencies:
-    jssha "3.2.0"
-
-ton-crypto@^3.2.0:
-  version "3.2.0"
-  resolved "https://registry.npmjs.org/ton-crypto/-/ton-crypto-3.2.0.tgz"
-  integrity sha512-fltdBNQ45gARMuGMEOjPZWPJ5eSql8p3CA0Dj7tPv5lhU5ziT8SxXLAzDraR9HJ8YpjBHLVvYyhMLRiEwxgtMQ==
-  dependencies:
-    jssha "3.2.0"
-    ton-crypto-primitives "2.0.0"
-    tweetnacl "1.0.3"
-
 tr46@~0.0.3:
   version "0.0.3"
   resolved "https://registry.npmjs.org/tr46/-/tr46-0.0.3.tgz"
