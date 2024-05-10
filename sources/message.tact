@@ -1,3 +1,10 @@
+message LogEventMintRecord {
+    minter: Address;
+    item_id: Int;
+    generate_number: Int;
+}
+
+
 message(0x693d3950) GetRoyaltyParams {
     query_id: Int as uint64;
 }

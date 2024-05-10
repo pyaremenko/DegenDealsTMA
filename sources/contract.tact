@@ -2,12 +2,6 @@ import "./message.tact";
 const minTonsForStorage: Int = ton("0.02");
 const gasConsumption: Int = ton("0.02");
 
-message EventMintRecord {
-    minter: Address;
-    item_id: Int;
-    generate_number: Int;
-}
-
 contract NftCollection {
     next_item_index: Int as uint32 = 0;
     owner_address: Address;
@@ -28,12 +22,7 @@ contract NftCollection {
         msgValue = msgValue - (storageFee + gasConsumption);
         self.mint(ctx.sender, msgValue);
 
-        emit(EventMintRecord{
-            minter: sender(), 
-            item_id: self.next_item_index, 
-            generate_number: nativeRandom() 
-        }.toCell());
-        
+        emit(LogEventMintRecord{ minter: sender(), item_id: self.next_item_index, generate_number: nativeRandom() }.toCell());
     }
 
     // ===== Private Methods ===== //
@@ -56,7 +45,7 @@ contract NftCollection {
                 code: nft_init.code,
                 data: nft_init.data
             });
-        // dump(self.next_item_index);
+        // dump(self.next_item_index); // Reference at: https://tact-by-example.org/03-emit
         self.next_item_index = self.next_item_index + 1;
     }
 
@@ -126,12 +115,8 @@ contract NftItem {
     }
 
     receive(msg: Transfer){
-        let ctx: Context = context();
-
-        let msgValue: Int = ctx.value; // Check the gasCost for storage
-        let tonBalanceBeforeMsg: Int = myBalance() - msgValue;
-        let storageFee: Int = minTonsForStorage - min(tonBalanceBeforeMsg, minTonsForStorage);
-        msgValue = msgValue - (storageFee + gasConsumption);
+        let ctx: Context = context(); // Reference: https://docs.tact-lang.org/language/ref/common#context
+        let msgValue: Int = self.msgValue(ctx.value);
         
         if (self.is_initialized == false) {  // Initial Transfer, aka the "Minting" of the NFT
             require(ctx.sender == self.collection_address, "initialized tx need from collection");
@@ -187,6 +172,12 @@ contract NftItem {
                 collection: self.collection_address
             }.toCell()
         });
+    }
+
+    fun msgValue(value: Int): Int {
+        let tonBalanceBeforeMsg: Int = myBalance() - value;
+        let storageFee: Int = minTonsForStorage - min(tonBalanceBeforeMsg, minTonsForStorage);
+        return value - (storageFee + gasConsumption);
     }
 
     // --------- Get Function  --------- //

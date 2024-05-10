@@ -8,7 +8,7 @@ import {
 } from "@ton/sandbox";
 import "@ton/test-utils";
 import { printSeparator } from "./utils/print";
-import { NftCollection, RoyaltyParams, loadEventMintRecord } from "./output/sample_NftCollection";
+import { NftCollection, RoyaltyParams, loadLogEventMintRecord } from "./output/sample_NftCollection";
 import { NftItem } from "./output/sample_NftItem";
 
 describe("contract", () => {
@@ -45,8 +45,8 @@ describe("contract", () => {
     });
 
     it("Test", async () => {
-        // console.log("Next IndexID: " + (await collection.getGetCollectionData()).next_item_index);
-        // console.log("Collection Address: " + collection.address);
+        console.log("Next IndexID: " + (await collection.getGetCollectionData()).next_item_index);
+        console.log("Collection Address: " + collection.address);
     });
 
     it("Test Mint Record in detail", async () => {
@@ -73,8 +73,9 @@ describe("contract", () => {
         console.log("External Message(string - hex): " + deploy_result.externals[0].body.toBoc().toString("hex"));
         printSeparator();
 
-        let loadEvent = loadEventMintRecord(deploy_result.externals[0].body.asSlice());
+        // Print the Log Event of the Mint Record
+        let loadEvent = loadLogEventMintRecord(deploy_result.externals[0].body.asSlice());
         console.log("ItemId: " + loadEvent.item_id);
-        console.log("Number: " + loadEvent.generate_number);
+        console.log("The Random Number: " + loadEvent.generate_number);
     });
 });
