@@ -14,13 +14,14 @@ import { mnemonicToPrivateKey } from "@ton/crypto";
 import * as dotenv from "dotenv";
 dotenv.config();
 // ================================================================= //
-import { NftCollection } from "./output/sample_NftCollection";
-import { NftItem } from "./output/sample_NftItem";
+import { DealsNftCollection } from "./output/sample_DealsNftCollection";
+import { DealNftItem } from "./output/sample_DealNftItem";
 // ================================================================= //
 
 (async () => {
     // Create client for testnet sandboxv4 API - alternative endpoint
     const client4 = new TonClient4({
+        // endpoint: "https://mainnet-v4.tonhubapi.com", // Main-net
         endpoint: "https://sandbox-v4.tonhubapi.com", // Test-net
     });
 
@@ -41,7 +42,7 @@ import { NftItem } from "./output/sample_NftItem";
     let owner = wallet.address;
 
     // Prepare the initial code and data for the contract
-    let init = await NftCollection.init(owner, newContent, {
+    let init = await DealsNftCollection.init(owner, newContent, {
         $$type: "RoyaltyParams",
         numerator: 350n, // 350n = 35%
         denominator: 1000n,
@@ -72,7 +73,7 @@ import { NftItem } from "./output/sample_NftItem";
         ],
     });
 
-    let collection_client = client4.open(NftCollection.fromAddress(deployContract));
+    let collection_client = client4.open(DealsNftCollection.fromAddress(deployContract));
     let latest_indexId = (await collection_client.getGetCollectionData()).next_item_index;
     console.log("Latest indexID:[", latest_indexId, "]");
     let item_address = await collection_client.getGetNftAddressByIndex(latest_indexId);

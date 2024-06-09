@@ -2,51 +2,168 @@ import "./message.tact";
 const minTonsForStorage: Int = ton("0.02");
 const gasConsumption: Int = ton("0.02");
 
-contract NftCollection {
-    next_item_index: Int as uint32 = 0;
+message SetMintFee {
+    newMintFee: Int as coins;
+}
+
+message SetBuyFee {
+    newBuyFee: Int as coins;
+}
+
+message Mint {
+    individual_content: Cell;   // any item info
+    amount: Int as coins;       // amount of TON
+}
+
+message Buy {
+    item_index: Int as uint256;
+}
+
+message InternalBuy {
+    item_index: Int as uint256;
+    buyer: Address;
+}
+
+message Deal {
+    item_index: Int as uint256;
+}
+
+struct DealData {
+    seller: Address?;
+    amount: Int? as coins;
+    buyer: Address?;
+}
+
+message GetDealData {
+
+}
+
+message ReceiveDealData {
+    item_index: Int;
+    seller: Address?;
+    amount: Int? as coins;
+    buyer: Address?;
+}
+
+message PayToSeller {
+    item_index: Int;
+    refund_address: Address;
+}
+
+contract DealsNftCollection {
+
+    next_item_index: Int as uint256 = 0;
     owner_address: Address;
-    royalty_params: RoyaltyParams?;                      
-    collection_content: Cell;   
+    royalty_params: RoyaltyParams?;
+    collection_content: Cell;
+
+    mintFee: Int as coins;
+    buyFee: Int as coins;
 
     init(owner_address: Address, collection_content: Cell, royalty_params: RoyaltyParams){
         self.owner_address = owner_address;
-        self.collection_content = collection_content; 
+        self.collection_content = collection_content;
         self.royalty_params = royalty_params;
+        self.mintFee = ton("0.01");
+        self.buyFee = ton("0.01");
     }
 
-    receive("Mint"){
+    receive(msg: SetMintFee) {
+        require(context().sender == self.owner_address, "new mint commission can be set only by owner");
+        self.mintFee = msg.newMintFee;
+    }
+
+    receive(msg: SetBuyFee) {
+        require(context().sender == self.owner_address, "new buy commission can be set only by owner");
+        self.buyFee = msg.newBuyFee;
+    }
+
+    receive(msg: Mint){
         let ctx: Context = context(); // get sender Info
         let msgValue: Int = ctx.value;
         let tonBalanceBeforeMsg: Int = myBalance() - msgValue;
         let storageFee: Int = minTonsForStorage - min(tonBalanceBeforeMsg, minTonsForStorage);
-        msgValue = msgValue - (storageFee + gasConsumption);
-        self.mint(ctx.sender, msgValue);
+        msgValue = msgValue - (storageFee + gasConsumption + self.mintFee);
+        let item_index: Int = self.next_item_index;
+        let nft_init: StateInit = self.getNftItemInit(item_index);
+        let sender: Address = ctx.sender;
+        let customPayload: Cell = beginCell()
+            .storeCoins(msg.amount)           // Store amount of TON
+            .storeRef(msg.individual_content) // Store a reference to another cell
+            .endCell();
 
-        emit(LogEventMintRecord{ minter: sender(), item_id: self.next_item_index, generate_number: nativeRandom() }.toCell());
+        send(SendParameters{
+            to: contractAddress(nft_init), 
+            value: msgValue, 
+            bounce: false,
+            mode: SendIgnoreErrors,
+            body: Transfer {
+                query_id: 0,
+                new_owner: sender,
+                response_destination: self.owner_address,
+                custom_payload: customPayload,
+                forward_amount: 0,
+                forward_payload: emptySlice()
+            }.toCell(),
+            code: nft_init.code,
+            data: nft_init.data
+        });
+        send(SendParameters{
+            to: self.owner_address,
+            value: self.mintFee,
+            bounce: false,
+            mode: SendIgnoreErrors,
+            body: emptyCell(),
+        });
+
+        self.next_item_index = self.next_item_index + 1;
+
+        emit(LogEventMintRecord{ item_index: item_index, seller: sender, itemInfo: msg.individual_content, amount: msg.amount }.toCell());
     }
 
-    // ===== Private Methods ===== //
-    fun mint(sender: Address, msgValue: Int) {
-        require(self.next_item_index >= 0, "non-sequential NFTs");
-        let nft_init: StateInit = self.getNftItemInit(self.next_item_index);
+    receive(msg: Buy){
+        let ctx: Context = context(); // get sender Info
+        let msgValue: Int = ctx.value;
+        let tonBalanceBeforeMsg: Int = myBalance() - msgValue;
+        let storageFee: Int = minTonsForStorage - min(tonBalanceBeforeMsg, minTonsForStorage);
+        msgValue = msgValue - (storageFee + gasConsumption + self.buyFee);
+
+        let item_index: Int = msg.item_index;
+        let item_address: Address = self.get_nft_address_by_index(item_index)!!;
+
+        let buyer: Address = ctx.sender;
+        
+        /// make a payment to seller
         send(SendParameters{
-                to: contractAddress(nft_init), 
-                value: msgValue, 
-                bounce: false,
-                mode: SendIgnoreErrors,
-                body: Transfer {
-                    query_id: 0,
-                    new_owner: sender,
-                    response_destination: self.owner_address,
-                    custom_payload: self.collection_content,
-                    forward_amount: 0,
-                    forward_payload: emptySlice()
-                }.toCell(),
-                code: nft_init.code,
-                data: nft_init.data
-            });
-        // dump(self.next_item_index); // Reference at: https://tact-by-example.org/03-emit
-        self.next_item_index = self.next_item_index + 1;
+            to: item_address,
+            value: msgValue,
+            mode: SendIgnoreErrors,
+            body: PayToSeller {
+                item_index: item_index,
+                refund_address: ctx.sender,
+            }.toCell(),
+        });
+
+        /// transfer NFT to buyer
+        send(SendParameters{
+            to: item_address,
+            value: gasConsumption,
+            bounce: false,
+            mode: SendIgnoreErrors,
+            body: InternalBuy {
+                item_index: item_index,
+                buyer: buyer,
+            }.toCell(),
+        });
+
+        /// pay fee to owner
+        send(SendParameters{
+            to: self.owner_address,
+            value: self.buyFee,
+            bounce: false,
+            mode: SendIgnoreErrors,
+            body: emptyCell(),
+        });
     }
 
     receive(msg: GetRoyaltyParams) {   
@@ -84,7 +201,7 @@ contract NftCollection {
     }
 
     get fun getNftItemInit(item_index: Int): StateInit {
-        return initOf NftItem(myAddress(), item_index);
+        return initOf DealNftItem(myAddress(), item_index);
     }
     
     get fun get_nft_content(index: Int, individual_content: Cell): Cell { 
@@ -97,15 +214,27 @@ contract NftCollection {
     get fun royalty_params(): RoyaltyParams {
         return self.royalty_params!!;
     }
+
+    get fun getMintFee(): Int {
+        return self.mintFee;
+    }
+
+    get fun getBuyFee(): Int {
+        return self.buyFee;
+    }
 }
 
-contract NftItem {
+contract DealNftItem {
     collection_address: Address;
     item_index: Int; 
     is_initialized: Bool;
 
     owner: Address?;
     individual_content: Cell?;
+
+    seller: Address?;
+    amount: Int? as coins;
+    buyer: Address?;
 
     init(collection_address: Address, item_index: Int){
         require(sender() == collection_address, "not from collection");
@@ -122,7 +251,15 @@ contract NftItem {
             require(ctx.sender == self.collection_address, "initialized tx need from collection");
             self.is_initialized = true;
             self.owner = msg.new_owner;
-            self.individual_content = msg.custom_payload;
+            self.seller = msg.new_owner; // the seller mints the NFT
+            
+            let customPayloadSlice: Slice =  msg.custom_payload!!.asSlice();
+            let amount: Int = customPayloadSlice.loadCoins();
+            let individual_content: Cell = customPayloadSlice.loadRef();
+            
+            self.amount = amount;
+            self.individual_content = individual_content;
+
             send(SendParameters{
                 to: msg.response_destination!!,
                 value: msgValue,
@@ -130,6 +267,7 @@ contract NftItem {
                 body: Excesses { query_id: msg.query_id }.toCell()
             });
         } else {
+            require(self.seller != null || self.buyer != null, "not finished deal");
             require(ctx.sender == self.owner!!, "not owner");
             self.owner = msg.new_owner;  // change current owner to the new_owner
             if (msg.forward_amount > 0) {
@@ -158,6 +296,13 @@ contract NftItem {
             } 
         }
     }
+
+    receive(msg: InternalBuy) {
+        require(msg.item_index == self.item_index, "not this NFT item");
+        require(sender() == self.collection_address, "only internal call");
+        self.owner = msg.buyer;
+        self.buyer = msg.buyer;
+    }
     
     receive(msg: GetStaticData){ 
         let ctx: Context = context();
@@ -174,10 +319,67 @@ contract NftItem {
         });
     }
 
-    fun msgValue(value: Int): Int {
+    receive(msg: PayToSeller) {
+        let ctx: Context = context();
+        
+        require(self.buyer == null, "already paid");
+        require(ctx.sender == self.collection_address, "not collection");
+        require(ctx.value >= self.amount!! + gasConsumption, "not enought TON");
+        
+        send(SendParameters{
+            to: self.seller!!,
+            value: self.amount!!,
+            mode: SendIgnoreErrors,
+            body: emptyCell(),
+        });
+        let refund_value: Int = ctx.value - self.amount!!;
+        send(SendParameters{
+            to: msg.refund_address,
+            value: refund_value,
+            mode: SendIgnoreErrors,
+            body: emptyCell(),
+        });
+    }
+
+    receive(msg: GetDealData) {
+        let ctx: Context = context();
+        send(SendParameters{
+            to: ctx.sender,
+            value: 0,
+            mode: 64,
+            body: ReceiveDealData{
+                item_index: self.item_index,
+                seller: self.seller,
+                amount: self.amount,
+                buyer: self.buyer,
+            }.toCell()
+        });
+    }
+
+    get fun msgValue(value: Int): Int {
         let tonBalanceBeforeMsg: Int = myBalance() - value;
         let storageFee: Int = minTonsForStorage - min(tonBalanceBeforeMsg, minTonsForStorage);
         return value - (storageFee + gasConsumption);
+    }
+
+    get fun getSeller(): Address? {
+        return self.seller!!;
+    }
+
+    get fun getAmount(): Int? {
+        return self.amount!!;
+    }
+
+    get fun getBuyer(): Address? {
+        return self.buyer!!;
+    }
+
+    get fun dealData(): DealData {
+        return DealData{
+            seller: self.seller!!,
+            amount: self.amount!!,
+            buyer: self.buyer!!,
+        };
     }
 
     // --------- Get Function  --------- //

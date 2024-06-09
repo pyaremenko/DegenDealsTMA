@@ -2,7 +2,7 @@ import { beginCell, contractAddress, toNano, Address } from "@ton/ton";
 import { deploy } from "./utils/deploy";
 import { printAddress, printDeploy, printHeader } from "./utils/print";
 // ================================================================= //
-import { NftCollection } from "./output/sample_NftCollection";
+import { DealsNftCollection } from "./output/sample_DealsNftCollection";
 // ================================================================= //
 
 (async () => {
@@ -12,10 +12,10 @@ import { NftCollection } from "./output/sample_NftCollection";
 
     // ===== Parameters =====
     // Replace owner with your address
-    let owner = Address.parse("YOUR ADDRESS"); // 🔴🔴🔴
+    let owner = Address.parse("UQCeMT-zqH2U8sj20mTW8e1qLRNHg-zWJ6bRxJlBsE5dVBZN"); // 🔴🔴🔴
 
     // Prepare the initial code and data for the contract
-    let init = await NftCollection.init(owner, newContent, {
+    let init = await DealsNftCollection.init(owner, newContent, {
         $$type: "RoyaltyParams",
         numerator: 350n, // 350n = 35%
         denominator: 1000n,

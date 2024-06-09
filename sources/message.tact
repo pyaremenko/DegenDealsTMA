@@ -1,7 +1,13 @@
 message LogEventMintRecord {
-    minter: Address;
-    item_id: Int;
-    generate_number: Int;
+    item_index: Int;
+    seller: Address;
+    itemInfo: Cell;
+    amount: Int as coins;
+}
+
+message LogEventBuyRecord {
+    item_index: Int;
+    buyer: Address;
 }
 
 

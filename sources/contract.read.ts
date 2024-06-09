@@ -2,7 +2,7 @@ import { beginCell, contractAddress, toNano, Cell, Address, TonClient4 } from "t
 import { deploy } from "./utils/deploy";
 import { printAddress, printDeploy, printHeader } from "./utils/print";
 // ================================================================= //
-import { NftCollection } from "./output/sample_NftCollection";
+import { DealsNftCollection } from "./output/sample_DealsNftCollection";
 // ================================================================= //
 
 (async () => {
@@ -14,7 +14,7 @@ import { NftCollection } from "./output/sample_NftCollection";
     // Parameters
     let collection_address = Address.parse("YOUR Collection ADDRESS");
 
-    let contract_address = await NftCollection.fromAddress(collection_address);
+    let contract_address = await DealsNftCollection.fromAddress(collection_address);
     let client_open = client.open(contract_address);
 
     const nft_index = 0n;
